@@ -1,5 +1,7 @@
 # MemoryBuddy 🧠
 
+[中文版](README.zh-CN.md)
+
 > **Give your AI agent a memory that lasts.** A production-ready starter that turns forgetful LLMs into stateful companions — built 100% on Cloudflare's free tier.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)

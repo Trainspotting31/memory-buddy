@@ -1,5 +1,7 @@
 # MemoryBuddy 🧠
 
+[English](README.md)
+
 > **给你的 AI 装上一颗"记忆大脑"。** 完全基于 Cloudflare 免费额度构建的生产级 AI 记忆框架 - 让 AI 真正记住每个用户。
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
