@@ -39,7 +39,7 @@ flowchart TD
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/yourusername/agent-memory-starter.git
+git clone https://github.com/liangsk53121/agent-memory-starter.git
 cd agent-memory-starter
 npm install
 ```
