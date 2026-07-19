@@ -1,5 +1,4 @@
-import type { D1Database, VectorizeIndex } from '@cloudflare/workers-types'
-import { AI } from '@cloudflare/ai'
+import type { D1Database, VectorizeIndex, Ai } from '@cloudflare/workers-types'
 import { LLM, ChatMessage } from './llm'
 import { extractFacts, deduplicateFacts, ExtractedFact } from './memory/extract'
 import { retrieveMemory, RetrievedMemory } from './memory/retrieve'
@@ -12,7 +11,7 @@ export interface AgentDOState {
 export interface Env {
   MEMORY_DB: D1Database
   MEMORY_VECTORIZE: VectorizeIndex
-  AI: AI
+  AI: Ai
   LLM_API_KEY?: string
   LLM_API_BASE?: string
   LLM_MODEL?: string
@@ -30,7 +29,7 @@ export class AgentDO implements DurableObject {
       {
         apiKey: env.LLM_API_KEY,
         apiBase: env.LLM_API_BASE,
-        model: env.LLM_MODEL || '@cf/meta/llama-3.1-8b-instruct'
+        model: env.LLM_MODEL || '@cf/meta/llama-3.2-3b-instruct'
       },
       env.AI
     )
@@ -47,16 +46,21 @@ export class AgentDO implements DurableObject {
     const url = new URL(request.url)
     const path = url.pathname
 
-    switch (path) {
-      case '/chat':
-        return this.handleChat(request)
-      case '/memory':
-        return this.handleGetMemory(request)
-      case '/memory/clear':
-        return this.handleClearMemory(request)
-      default:
-        return new Response('Not found', { status: 404 })
+    // Match /memory/<userId> or /memory?userId=<userId>
+    if (path === '/chat') {
+      return this.handleChat(request)
     }
+    if (path === '/memory') {
+      return this.handleGetMemory(request)
+    }
+    // Match /memory/<userId> (extract userId from path)
+    const memMatch = path.match(/^\/memory\/(.+)$/)
+    if (memMatch) {
+      const userId = decodeURIComponent(memMatch[1])
+      return this.handleGetMemoryForUser(userId)
+    }
+
+    return new Response('Not found', { status: 404 })
   }
 
   private async handleChat(request: Request): Promise<Response> {
@@ -70,14 +74,15 @@ export class AgentDO implements DurableObject {
     const userMessage: ChatMessage = { role: 'user', content: message }
     state.messages.push(userMessage)
 
-    const memory = await retrieveMemory(this.llm, this.env.MEMORY_DB, this.env.MEMORY_VECTORIZE, userId, message)
+    let memory: RetrievedMemory = { facts: [], semanticMatches: [] }
+    try {
+      memory = await retrieveMemory(this.llm, this.env.MEMORY_DB, this.env.MEMORY_VECTORIZE, userId, message)
+    } catch (e) {
+      console.error('retrieveMemory failed:', e)
+    }
     const context = this.buildMemoryContext(memory)
 
-    const systemPrompt = `You are an AI assistant with long-term memory. Use the following memory context to inform your responses:
-
-${context}
-
-If there's no relevant memory, just respond naturally. Always maintain the conversation flow.`
+    const systemPrompt = `You are an AI assistant with long-term memory. Use the following memory context to inform your responses:\n\n${context}\n\nIf there's no relevant memory, just respond naturally. Always maintain the conversation flow.`
 
     const recentMessages = state.messages.slice(-10)
     const messagesWithSystem: ChatMessage[] = [
@@ -85,24 +90,42 @@ If there's no relevant memory, just respond naturally. Always maintain the conve
       ...recentMessages
     ]
 
-    const stream = await this.llm.chatCompletion(messagesWithSystem, true)
+    let stream: string | ReadableStream<string>
+    try {
+      stream = await this.llm.chatCompletion(messagesWithSystem, true)
+    } catch (e: any) {
+      return new Response(JSON.stringify({ error: 'LLM call failed: ' + e.message }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' }
+      })
+    }
 
     let fullResponse = ''
+    const self = this
     const responseStream = new ReadableStream({
-      async start(controller) {
-        for await (const chunk of stream as ReadableStream<string>) {
-          fullResponse += chunk
-          controller.enqueue(chunk)
+      async start(controller: ReadableStreamDefaultController) {
+        try {
+          for await (const chunk of stream as AsyncIterable<string>) {
+            fullResponse += chunk
+            controller.enqueue(chunk)
+          }
+        } catch (e: any) {
+          controller.enqueue(`\n[Error: ${e.message}]`)
         }
         controller.close()
 
-        this.state.storage.put('state', {
+        self.state.storage.put('state', {
           messages: [...state.messages, { role: 'assistant', content: fullResponse }]
         })
 
-        await this.persistMemory(userId, [...state.messages, { role: 'assistant', content: fullResponse }])
-      }.bind(this)
-    })
+        try {
+          await self.persistMemory(userId, [...state.messages, { role: 'assistant', content: fullResponse }])
+        } catch (e) {
+          // Memory persistence failure shouldn't break the chat
+          console.error('persistMemory failed:', e)
+        }
+      }
+    } as any)
 
     return new Response(responseStream, {
       headers: {
@@ -113,14 +136,18 @@ If there's no relevant memory, just respond naturally. Always maintain the conve
     })
   }
 
+  /** GET /memory — legacy query-param style */
   private async handleGetMemory(request: Request): Promise<Response> {
     const url = new URL(request.url)
     const userId = url.searchParams.get('userId')
-
     if (!userId) {
       return new Response('Missing userId', { status: 400 })
     }
+    return this.handleGetMemoryForUser(userId)
+  }
 
+  /** GET /memory/:userId — path-based style */
+  private async handleGetMemoryForUser(userId: string): Promise<Response> {
     const [state, facts, summaries] = await Promise.all([
       this.state.storage.get<AgentDOState>('state'),
       this.env.MEMORY_DB.prepare('SELECT content, category, created_at FROM facts WHERE user_id = ?')
@@ -132,29 +159,11 @@ If there's no relevant memory, just respond naturally. Always maintain the conve
     ])
 
     return new Response(JSON.stringify({
+      userId,
       short_term_memory: state?.messages.slice(-10) || [],
       facts: facts.results || [],
       summaries: summaries.results || []
     }), {
-      headers: { 'Content-Type': 'application/json' }
-    })
-  }
-
-  private async handleClearMemory(request: Request): Promise<Response> {
-    const url = new URL(request.url)
-    const userId = url.searchParams.get('userId')
-
-    if (!userId) {
-      return new Response('Missing userId', { status: 400 })
-    }
-
-    await Promise.all([
-      this.state.storage.put('state', { messages: [] }),
-      this.env.MEMORY_DB.prepare('DELETE FROM facts WHERE user_id = ?').bind(userId).run(),
-      this.env.MEMORY_DB.prepare('DELETE FROM summaries WHERE user_id = ?').bind(userId).run()
-    ])
-
-    return new Response(JSON.stringify({ success: true }), {
       headers: { 'Content-Type': 'application/json' }
     })
   }
@@ -181,7 +190,7 @@ If there's no relevant memory, just respond naturally. Always maintain the conve
       shouldSummarize(messages.length)
     ])
 
-    const existingFacts = (existingFactsResult.results || []).map((r: { content: string }) => r.content)
+    const existingFacts = (existingFactsResult.results || []).map((r: any) => r.content as string)
     const newFacts = await extractFacts(this.llm, messages)
     const uniqueFacts = await deduplicateFacts(existingFacts, newFacts)
 
@@ -203,14 +212,18 @@ If there's no relevant memory, just respond naturally. Always maintain the conve
         .bind(userId, fact.content, fact.category)
         .run(),
       (async () => {
-        const embedding = await this.llm.generateEmbedding(fact.content)
-        await this.env.MEMORY_VECTORIZE.upsert([
-          {
-            id: `${userId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-            values: embedding,
-            metadata: { user_id: userId, content: fact.content, category: fact.category }
-          }
-        ])
+        try {
+          const embedding = await this.llm.generateEmbedding(fact.content)
+          await this.env.MEMORY_VECTORIZE.upsert([
+            {
+              id: `${userId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              values: embedding,
+              metadata: { user_id: userId, content: fact.content, category: fact.category }
+            }
+          ])
+        } catch (e) {
+          console.error('Vectorize upsert failed:', e)
+        }
       })()
     ])
   }

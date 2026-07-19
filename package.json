@@ -10,11 +10,11 @@
     "test:ci": "vitest run"
   },
   "dependencies": {
-    "@cloudflare/ai": "^1.4.0",
     "hono": "^4.0.0"
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "^0.4.0",
+    "@cloudflare/workers-types": "^4.20240909.0",
     "@types/node": "^20.0.0",
     "typescript": "^5.4.0",
     "vitest": "^1.5.0",

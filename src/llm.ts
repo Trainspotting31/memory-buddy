@@ -1,4 +1,4 @@
-import { AI } from '@cloudflare/ai'
+import type { Ai } from '@cloudflare/workers-types'
 
 export interface LLMConfig {
   apiKey?: string
@@ -12,10 +12,10 @@ export interface ChatMessage {
 }
 
 export class LLM {
-  private ai: AI | null = null
+  private ai: Ai | null = null
   private config: LLMConfig
 
-  constructor(config: LLMConfig, aiBinding?: AI) {
+  constructor(config: LLMConfig, aiBinding?: Ai) {
     this.config = config
     if (aiBinding) {
       this.ai = aiBinding
@@ -27,7 +27,7 @@ export class LLM {
       throw new Error('AI binding not available for embedding')
     }
     const result = await this.ai.run('@cf/baai/bge-base-en-v1.5', { text })
-    return result as number[]
+    return result as unknown as number[]
   }
 
   async chatCompletion(messages: ChatMessage[], stream: boolean = false): Promise<string | ReadableStream<string>> {
@@ -44,17 +44,45 @@ export class LLM {
         messages,
         stream: true
       })
+      // Workers AI returns SSE chunks like: data: {"choices":[{"delta":{"content":"text"}}]}
       return new ReadableStream({
         async start(controller) {
-          for await (const chunk of response as AsyncIterable<string>) {
-            controller.enqueue(chunk)
+          const textStream = (response as ReadableStream).pipeThrough(new TextDecoderStream())
+          const reader = textStream.getReader()
+          let buffer = ''
+          try {
+            while (true) {
+              const { done, value } = await reader.read()
+              if (done) break
+              buffer += value
+              // Process lines
+              const lines = buffer.split('\n')
+              buffer = lines.pop() || ''
+              for (const line of lines) {
+                if (line.startsWith('data: ')) {
+                  const data = line.slice(6).trim()
+                  if (data && data !== '[DONE]') {
+                    try {
+                      const json = JSON.parse(data)
+                      const content = json.choices?.[0]?.delta?.content || json.response || ''
+                      if (content) controller.enqueue(content)
+                    } catch { /* skip malformed JSON */ }
+                  }
+                }
+              }
+            }
+          } finally {
+            controller.close()
           }
-          controller.close()
         }
       })
     }
 
     const result = await this.ai.run(this.config.model, { messages })
+    // Workers AI returns { response: "text" } object
+    if (result && typeof result === 'object' && 'response' in result) {
+      return (result as any).response as string
+    }
     return typeof result === 'string' ? result : JSON.stringify(result)
   }
 
