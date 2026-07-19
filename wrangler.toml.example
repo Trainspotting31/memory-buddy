@@ -1,0 +1,36 @@
+name = "memory-buddy"
+main = "src/index.ts"
+compatibility_date = "2026-07-01"
+compatibility_flags = ["nodejs_compat"]
+workers_dev = true
+
+[assets]
+directory = "./public"
+
+[vars]
+LLM_API_KEY = ""
+LLM_API_BASE = ""
+LLM_MODEL = "@cf/meta/llama-3.2-3b-instruct"
+
+# Replace with your D1 database ID from `wrangler d1 create`
+[[d1_databases]]
+binding = "MEMORY_DB"
+database_name = "memory-buddy-db"
+database_id = "YOUR_DATABASE_ID_HERE"
+migrations_dir = "migrations"
+
+# Replace with your Vectorize index name from `wrangler vectorize create`
+[[vectorize]]
+binding = "MEMORY_VECTORIZE"
+index_name = "memory-buddy-index"
+
+[ai]
+binding = "AI"
+
+[[durable_objects.bindings]]
+name = "AGENT_DO"
+class_name = "AgentDO"
+
+[[migrations]]
+tag = "v1_init"
+new_sqlite_classes = ["AgentDO"]

@@ -2,61 +2,70 @@
 
 [中文版](README.zh-CN.md)
 
-> **Give your AI agent a memory that lasts.** A production-ready starter that turns forgetful LLMs into stateful companions — built 100% on Cloudflare's free tier.
+> **Give your AI agents a shared memory that lasts.** Deploy once, connect any MCP-compatible AI tool — Hermes, Trae, Cursor, Claude Desktop — they all share the same memory.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Cloudflare Workers](https://img.shields.io/badge/Cloudflare-Workers-F38020?logo=cloudflare&logoColor=white)](https://workers.cloudflare.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.4-blue?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Free Tier](https://img.shields.io/badge/Cost-$0-success)](#why-cloudflare-free-tier)
+[![MCP](https://img.shields.io/badge/MCP-Streamable%20HTTP-blue)](https://modelcontextprotocol.io/)
+[![Free Tier](https://img.shields.io/badge/Cost-$0-success)](#-why-cloudflare-free-tier)
 
-Most LLM-powered chats suffer from "goldfish memory" — refresh the page and everything's gone. **MemoryBuddy** fixes this with a three-tier memory architecture that lets your agent remember user facts, recall relevant context, and grow smarter over time — all without a single line of backend infrastructure code.
+## 🌟 What is this?
 
-## ✨ Why MemoryBuddy?
+Most AI tools suffer from "goldfish memory" — refresh the page, start a new session, switch to another app, and everything's gone. You keep reintroducing yourself, re-explaining your preferences, re-stating context.
 
-| 💡 Problem | ✅ Solution |
-|-----------|-------------|
-| Agent forgets users between sessions | Persistent long-term memory via D1 + Vectorize |
-| Relevant context gets lost in long chats | Semantic retrieval surfaces the right memory at the right time |
-| Context windows fill up fast | Automatic summarization keeps conversations compact |
-| Privacy regulations (GDPR) | One-click `DELETE` endpoint for complete memory wipe |
-| Hosting costs add up | 100% on Cloudflare free tier — **$0/month** |
+**MemoryBuddy** fixes this with a **shared memory layer** that any AI tool can read from and write to:
 
-## 🎯 Core Features
+- 🧠 **Long-term memory** — facts, preferences, decisions persist across sessions
+- 🔍 **Semantic search** — find relevant memories by meaning, not just keywords
+- 🤖 **Auto fact extraction** — LLM automatically distills what's worth remembering
+- 📝 **Smart summarization** — long conversations get compressed, key points retained
+- 🗑️ **One-click forget** — `DELETE` wipes everything, GDPR compliant
+- 🔌 **MCP protocol** — any MCP-compatible client can connect, zero integration code
+- 💸 **$0/month** — runs entirely on Cloudflare's free tier
 
-- **🧠 Long-Term Memory** — Store user facts, preferences, and conversation history that survive across sessions.
-- **🔍 Semantic Retrieval** — Vectorize-powered similarity search finds the right memory in milliseconds, not just keyword match.
-- **🤖 Automatic Fact Extraction** — LLM automatically distills key facts from each conversation — no manual tagging required.
-- **📝 Smart Summarization** — Long conversations are auto-compressed to preserve context window without losing intent.
-- **🗑️ GDPR Compliant** — `DELETE /memory/:userId` wipes everything in one call.
-- **⚡ SSE Streaming** — Real-time token streaming for a snappy, ChatGPT-like experience.
-- **🔌 LLM-Agnostic** — Swap between Workers AI, OpenAI, or any Anthropic-compatible API with one config change.
+## 💡 What problem does it solve?
+
+| 😣 Without MemoryBuddy | ✅ With MemoryBuddy |
+|------------------------|---------------------|
+| Every AI tool starts fresh — you re-explain yourself constantly | All your AI tools share one memory — tell one, they all know |
+| Switching from Hermes to Trae means losing all context | Switch freely — memory lives in the cloud, not in the tool |
+| AI forgets your preferences between sessions | Preferences persist forever, across all sessions and all tools |
+| Long conversations hit context limits | Auto-summarization keeps things compact |
+| Privacy concerns — can't delete what it remembers | One API call wipes everything, fully GDPR compliant |
 
 ## 🏗️ Architecture
 
-```mermaid
-flowchart TD
-    Client -->|POST /chat| Worker[Worker - Hono Router]
-    Worker -->|Route by userId| DO[Durable Object]
-    DO -->|Read| DOStorage[DO Storage<br/>Short-term Memory]
-    DO -->|Query| D1[D1 Database<br/>Long-term Facts]
-    DO -->|Search| Vectorize[Vectorize<br/>Semantic Index]
-    DO -->|Generate| WorkersAI[Workers AI<br/>Embeddings + LLM]
-    DO -->|Stream| Client
-    DO -->|Async| D1
-    DO -->|Async| Vectorize
+```
+┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐
+│ Hermes  │   │  Trae   │   │ Cursor  │   │ Claude  │
+└────┬────┘   └────┬────┘   └────┬────┘   └────┬────┘
+     │ MCP         │ MCP         │ MCP         │ MCP
+     ▼             ▼             ▼             ▼
+┌──────────────────────────────────────────────────┐
+│           MemoryBuddy Worker (Cloudflare)         │
+│                                                  │
+│   /mcp  → MCP Server (5 tools, Streamable HTTP)  │
+│   /chat → HTTP API (SSE streaming + auto-extract)│
+│   /memory/:userId → REST API                     │
+└──────────┬──────────────────┬────────────────────┘
+           │                  │
+     ┌─────▼─────┐    ┌──────▼──────┐
+     │ D1 (facts)│    │ Vectorize   │
+     │ SQLite DB │    │ (embeddings)│
+     └───────────┘    └─────────────┘
 ```
 
-**Three-tier memory model:**
-1. **Short-term** (Durable Object storage) — Current conversation context
-2. **Long-term** (D1) — Structured facts: name, preferences, key entities
-3. **Semantic** (Vectorize) — Embeddings for meaning-based recall
+**Three-tier memory:**
+1. **Short-term** (Durable Object) — current conversation context
+2. **Long-term** (D1 database) — structured facts: name, preferences, key entities
+3. **Semantic** (Vectorize) — vector embeddings for meaning-based recall
 
-## 🚀 Quick Start
+## 🚀 Quick Start (3 steps, ~5 minutes)
 
 ### Prerequisites
 
-- [Cloudflare Account](https://dash.cloudflare.com/sign-up) (free tier works)
-- [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/install-and-update/) v3+
+- [Cloudflare account](https://dash.cloudflare.com/sign-up) (free is fine)
 - Node.js 18+
 
 ### 1. Clone & Install
@@ -70,17 +79,19 @@ npm install
 ### 2. Create Cloudflare Resources
 
 ```bash
-# Authenticate with Cloudflare
 npx wrangler login
 
-# Create D1 database (structured facts)
+# Create D1 database
 npx wrangler d1 create memory-buddy-db
 
-# Create Vectorize index (semantic search)
+# Create Vectorize index
 npx wrangler vectorize create memory-buddy-index --dimensions 768 --metric cosine
+
+# Initialize database schema
+npx wrangler d1 execute memory-buddy-db --remote --file=schema.sql
 ```
 
-> 💡 Copy the generated `database_id` and `index_id` into your `wrangler.jsonc` after creation.
+Copy the generated `database_id` into `wrangler.toml` (rename from `wrangler.toml.example`).
 
 ### 3. Deploy
 
@@ -88,137 +99,185 @@ npx wrangler vectorize create memory-buddy-index --dimensions 768 --metric cosin
 npx wrangler deploy
 ```
 
-Your agent is now live at `https://memory-buddy.<your-subdomain>.workers.dev` 🎉
+Done! Your memory server is live at `https://memory-buddy.<your-subdomain>.workers.dev` 🎉
 
-## 🔌 API Reference
+## 🔌 Connect Your AI Tools
+
+MemoryBuddy speaks MCP (Model Context Protocol). Any MCP-compatible tool can connect — they all share the same memory.
+
+### Hermes Agent
+
+```bash
+hermes mcp add memory-buddy --url https://memory-buddy.<your-subdomain>.workers.dev/mcp
+```
+
+### Trae IDE
+
+1. **Settings → MCP → Add Manually**
+2. Type: **Streamable HTTP**
+3. URL: `https://memory-buddy.<your-subdomain>.workers.dev/mcp`
+
+Or create `.trae/mcp.json` in your project:
+
+```json
+{
+  "mcpServers": {
+    "memory-buddy": {
+      "type": "streamable-http",
+      "url": "https://memory-buddy.<your-subdomain>.workers.dev/mcp"
+    }
+  }
+}
+```
+
+### Cursor
+
+Add to `~/.cursor/mcp.json`:
+
+```json
+{
+  "mcpServers": {
+    "memory-buddy": {
+      "url": "https://memory-buddy.<your-subdomain>.workers.dev/mcp"
+    }
+  }
+}
+```
+
+### Claude Desktop
+
+Add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "memory-buddy": {
+      "type": "streamable-http",
+      "url": "https://memory-buddy.<your-subdomain>.workers.dev/mcp"
+    }
+  }
+}
+```
+
+### Any MCP Client (raw config)
+
+```
+Endpoint: https://memory-buddy.<your-subdomain>.workers.dev/mcp
+Transport: Streamable HTTP
+Auth: None (or add your own)
+```
+
+## 🛠️ MCP Tools
+
+Once connected, the AI gets 5 tools:
+
+| Tool | What it does | When AI calls it |
+|------|-------------|------------------|
+| `recall_memory` | Load all memory for a user | Start of conversation |
+| `search_memory` | Semantic search by meaning | "What did I say about X?" |
+| `store_memory` | Save a new fact | User shares preferences, decisions |
+| `forget_memory` | Delete all memory | User says "forget everything" |
+| `list_memory_users` | List all memory spaces | Checking what exists |
+
+**Shared memory:** All tools default to `userId: "hermes-shared"`. Use different userIds to isolate memory per project/persona.
+
+## 📡 HTTP API (no MCP needed)
 
 ### `POST /chat` — Chat with memory
 
-Returns an SSE stream of tokens. The agent reads relevant memory, generates a response, and automatically stores new facts.
-
 ```bash
-curl -N -X POST https://your-worker-url.workers.dev/chat \
+curl -N -X POST https://your-worker.workers.dev/chat \
   -H "Content-Type: application/json" \
-  -d '{"userId": "user123", "message": "Hi! I'm John and I love espresso."}'
+  -d '{"userId":"user123","message":"Hi! I'm John and I love espresso."}'
 ```
 
-### `GET /memory/:userId` — Retrieve all memory
-
-Returns the user's complete memory profile: short-term context, long-term facts, and metadata.
+### `GET /memory/:userId` — Get all memory
 
 ```bash
-curl https://your-worker-url.workers.dev/memory/user123
+curl https://your-worker.workers.dev/memory/user123
 ```
 
-### `DELETE /memory/:userId` — Wipe memory (GDPR)
-
-Permanently deletes all memory for the user across all storage tiers.
+### `DELETE /memory/:userId` — Wipe memory
 
 ```bash
-curl -X DELETE https://your-worker-url.workers.dev/memory/user123
+curl -X DELETE https://your-worker.workers.dev/memory/user123
+```
+
+### `GET /health` — Health check
+
+```bash
+curl https://your-worker.workers.dev/health
+```
+
+## ⚙️ Configuration
+
+Edit `wrangler.toml`:
+
+```toml
+[vars]
+LLM_MODEL = "@cf/meta/llama-3.2-3b-instruct"  # Default: Workers AI (free)
+
+# Optional: use external LLM instead of Workers AI
+LLM_API_KEY = "sk-your-key"
+LLM_API_BASE = "https://api.openai.com/v1"
+LLM_MODEL = "gpt-4o-mini"
 ```
 
 ## 💸 Why Cloudflare Free Tier?
 
-| Component | Cloudflare Free Tier | Self-Hosted Alternative |
-|-----------|---------------------|------------------------|
-| Compute | 100K requests/day | $5–$50/month (VPS) |
-| Database | 1GB D1 storage | $10–$100/month (Postgres) |
-| Vector DB | 256K vectors | $70+/month (Pinecone) |
-| LLM/Embeddings | 10K neurons/day | $10+/month (API costs) |
-| **Total** | **$0** | **~$100+/month** |
-
-## 📊 Free Tier Limits
-
-| Service | Free Limit | Notes |
-|---------|-----------|-------|
-| Workers | 100K requests/day | Auto-scales globally |
-| Durable Objects | 1M requests/day | 128MB per object |
-| D1 | 1GB storage | SQLite-compatible |
-| Vectorize | 256K vectors | 768 dimensions |
-| Workers AI | 10K neurons/day | ~300 chat completions |
-
-## ⚙️ Configuration
-
-Set environment variables in `wrangler.jsonc`:
-
-```jsonc
-{
-  "vars": {
-    "LLM_API_KEY": "",      // Optional: External LLM API key
-    "LLM_API_BASE": "",     // Optional: External LLM base URL
-    "LLM_MODEL": "@cf/meta/llama-3.1-8b-instruct"  // Default: Workers AI
-  }
-}
-```
-
-### Use OpenAI, Anthropic, or any compatible API
-
-```jsonc
-{
-  "vars": {
-    "LLM_API_KEY": "sk-your-api-key",
-    "LLM_API_BASE": "https://api.openai.com/v1",
-    "LLM_MODEL": "gpt-4o-mini"
-  }
-}
-```
-
-## 🎮 Try the Demo
-
-Open your deployed Worker URL in a browser. You'll see a built-in chat interface.
-
-**Try this:**
-1. Tell the agent your name and a preference ("I'm Sarah and I'm allergic to peanuts")
-2. Refresh the page (or start a new session)
-3. Ask: "What do you know about me?"
-
-The agent will recall everything — that's MemoryBuddy at work.
+| Component | Free Tier | Self-Hosted Equivalent |
+|-----------|-----------|----------------------|
+| Compute (Workers) | 100K req/day | $5–$50/mo (VPS) |
+| Database (D1) | 1GB storage | $10–$100/mo (Postgres) |
+| Vector DB (Vectorize) | 256K vectors | $70+/mo (Pinecone) |
+| LLM (Workers AI) | 10K neurons/day | $10+/mo (API) |
+| **Total** | **$0** | **~$100+/mo** |
 
 ## 📁 Project Structure
 
 ```
 memory-buddy/
 ├── src/
-│   ├── index.ts          # Worker entry + Hono router
-│   ├── agent-do.ts       # Durable Object: session & memory orchestration
+│   ├── index.ts          # Hono router: /mcp + /chat + /memory + /health
+│   ├── mcp.ts            # MCP Server factory (5 tools, stateless)
+│   ├── agent-do.ts       # Durable Object: chat session + memory orchestration
 │   ├── llm.ts            # LLM abstraction (Workers AI / OpenAI-compatible)
 │   └── memory/
 │       ├── extract.ts    # LLM-powered fact extraction
 │       ├── retrieve.ts   # Hybrid retrieval (D1 + Vectorize)
 │       └── summarize.ts  # Conversation summarization
-├── public/
-│   └── index.html        # Built-in demo chat UI
-├── test/                 # Unit tests (Vitest)
+├── public/index.html     # Built-in demo chat UI
 ├── schema.sql            # D1 database schema
-├── wrangler.jsonc        # Cloudflare configuration
+├── wrangler.toml.example # Cloudflare config template
 └── package.json
 ```
 
+## 🎮 Try the Demo
+
+Open your Worker URL in a browser — you'll see a built-in chat interface.
+
+1. Tell the agent your name and a preference ("I'm Sarah, I'm allergic to peanuts")
+2. Refresh the page
+3. Ask: "What do you know about me?"
+
+It remembers everything. That's MemoryBuddy.
+
 ## 🗺️ Roadmap
 
-- [ ] Multi-turn conversation optimizations
+- [x] MCP Server (Streamable HTTP)
+- [x] Multi-agent shared memory
+- [x] Semantic search
+- [x] Auto fact extraction
 - [ ] Memory categories & filtering
 - [ ] User authentication
-- [ ] Batch memory operations
-- [ ] Memory export/import (JSON)
-- [ ] Advanced summarization strategies
+- [ ] Batch memory import/export
 - [ ] Multi-language support
+- [ ] Hermes plugin (auto-inject memory at conversation start)
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. Fork → 2. Branch → 3. Commit → 4. Push → 5. PR
 
 ## 📄 License
 
-MIT License — see [LICENSE](LICENSE) for details.
-
-## 💖 Acknowledgments
-
-Built on the incredible [Cloudflare Workers](https://workers.cloudflare.com/) platform. Inspired by the need for AI agents that actually remember who you are.
+MIT — see [LICENSE](LICENSE)
