@@ -1,18 +1,16 @@
-# Agent Memory Starter
+# MemoryBuddy 🧠
 
 > Production-ready starter for stateful AI agents with persistent memory, built entirely on Cloudflare's free tier — Workers + Durable Objects + D1 + Vectorize + Workers AI.
 
-![Architecture](https://raw.githubusercontent.com/yourusername/agent-memory-starter/main/.github/architecture.svg)
-
 ## Features
 
-- **Long-term Memory**: Persistent storage for user facts, preferences, and conversation history
-- **Semantic Retrieval**: Vectorize-powered similarity search for relevant memories
-- **Automatic Fact Extraction**: LLM automatically extracts and stores key facts from conversations
-- **Conversation Summarization**: Auto-summarizes long conversations to save context window
-- **GDPR Compliant**: One-click memory deletion endpoint
-- **SSE Streaming**: Real-time chat responses with server-sent events
-- **100% Cloudflare Free Tier**: No infrastructure costs
+- **🧠 Long-term Memory**: Persistent storage for user facts, preferences, and conversation history
+- **🔍 Semantic Retrieval**: Vectorize-powered similarity search for relevant memories
+- **🤖 Automatic Fact Extraction**: LLM automatically extracts and stores key facts from conversations
+- **📝 Conversation Summarization**: Auto-summarizes long conversations to save context window
+- **🗑️ GDPR Compliant**: One-click memory deletion endpoint
+- **⚡ SSE Streaming**: Real-time chat responses with server-sent events
+- **💰 100% Cloudflare Free Tier**: No infrastructure costs
 
 ## Architecture
 
@@ -39,8 +37,8 @@ flowchart TD
 ### 1. Clone & Install
 
 ```bash
-git clone https://github.com/liangsk53121/agent-memory-starter.git
-cd agent-memory-starter
+git clone https://github.com/Trainspotting31/memory-buddy.git
+cd memory-buddy
 npm install
 ```
 
@@ -51,10 +49,10 @@ npm install
 npx wrangler login
 
 # Create D1 database
-npx wrangler d1 create agent-memory-db
+npx wrangler d1 create memory-buddy-db
 
 # Create Vectorize index
-npx wrangler vectorize create agent-memory-index --dimensions 768 --metric cosine
+npx wrangler vectorize create memory-buddy-index --dimensions 768 --metric cosine
 ```
 
 ### 3. Deploy
@@ -148,7 +146,7 @@ Open the deployed worker URL in your browser to see the demo chat interface. The
 ## Project Structure
 
 ```
-agent-memory-starter/
+memory-buddy/
 ├── src/
 │   ├── index.ts          # Worker entry + Hono router
 │   ├── agent-do.ts       # Durable Object class

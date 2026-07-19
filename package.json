@@ -1,7 +1,7 @@
 {
-  "name": "agent-memory-starter",
+  "name": "memory-buddy",
   "version": "1.0.0",
-  "description": "Production-ready starter for stateful AI agents with persistent memory, built entirely on Cloudflare's free tier",
+  "description": "给 AI 助手装上记忆大脑！完全基于 Cloudflare 免费服务构建的生产级 AI Agent 记忆框架",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
