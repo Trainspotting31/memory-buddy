@@ -159,6 +159,16 @@ Add to `claude_desktop_config.json`:
 }
 ```
 
+### Claude Code (plugin)
+
+This repo is also a Claude Code plugin: it bundles the MCP connection plus a skill that tells Claude when to recall, search and store memory.
+
+```bash
+export MEMORY_BUDDY_URL=https://memory-buddy.<your-subdomain>.workers.dev
+claude plugin marketplace add Trainspotting31/memory-buddy
+claude plugin install memory-buddy@memory-buddy
+```
+
 ### Any MCP Client (raw config)
 
 ```
