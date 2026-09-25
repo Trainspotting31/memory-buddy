@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "memory-buddy": {
+      "type": "http",
+      "url": "${MEMORY_BUDDY_URL}/mcp"
+    }
+  }
+}

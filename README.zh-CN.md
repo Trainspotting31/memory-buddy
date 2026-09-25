@@ -163,6 +163,16 @@ hermes mcp add memory-buddy --url https://memory-buddy.<你的子域名>.workers
 }
 ```
 
+### Claude Code（插件）
+
+本仓库同时是一个 Claude Code 插件：包含 MCP 连接，以及一个告诉 Claude 何时读取、搜索、存储记忆的技能。
+
+```bash
+export MEMORY_BUDDY_URL=https://memory-buddy.<your-subdomain>.workers.dev
+claude plugin marketplace add Trainspotting31/memory-buddy
+claude plugin install memory-buddy@memory-buddy
+```
+
 ### 任何 MCP 客户端
 
 ```

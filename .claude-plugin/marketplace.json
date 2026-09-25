@@ -1,0 +1,16 @@
+{
+  "name": "memory-buddy",
+  "owner": {
+    "name": "Trainspotting31"
+  },
+  "metadata": {
+    "description": "MemoryBuddy: shared long-term memory for AI agents."
+  },
+  "plugins": [
+    {
+      "name": "memory-buddy",
+      "source": "./",
+      "description": "Shared long-term memory for AI agents via MCP."
+    }
+  ]
+}
